@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>A-Mazing Maze Game</title>
-  <link rel="stylesheet" href="style.css">
+  <title>A-Mazing</title>
 </head>
 <body>
-  <h1>A-Mazing Maze Game</h1>
-  <canvas id="mazeCanvas" width="600" height="600"></canvas>
+  <canvas id="mazeCanvas" width="400" height="400"></canvas>
+  <button onclick="generateMaze(); drawMaze();">Generate Maze</button>
+  <button onclick="showSolution()">Show Solution</button>
+  <button onclick="autoMove()">Automatic Automove</button>
   <script src="maze.js"></script>
 </body>
 </html>
