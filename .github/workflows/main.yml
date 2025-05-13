@@ -1,0 +1,69 @@
+name: Dependency Checker
+
+on:
+  push:
+    paths:
+      - '**.py'
+      - '**.js'
+      - '**.ts'
+      - '**.c'
+      - '**.h'
+      - '**.R'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  analyze-dependencies:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Fetch all branches
+
+      # Python Dependency Extraction
+      - name: Generate Python Dependencies
+        if: contains(github.event.commits.*.modified, '.py')
+        run: |
+          pip install pipreqs
+          pipreqs ./ --force --savepath requirements.txt
+          echo "Python dependencies saved to requirements.txt"
+
+      # JavaScript/TypeScript Dependency Extraction
+      - name: Generate JS/TS Dependencies
+        if: contains(github.event.commits.*.modified, '.js') || contains(github.event.commits.*.modified, '.ts')
+        run: |
+          if [ -f "package.json" ]; then
+            npm install
+          else
+            npm init -y
+          fi
+          echo "JavaScript/TypeScript dependencies saved to package.json"
+
+      # C/C++ Dependency Extraction
+      - name: Generate C/C++ Dependencies
+        if: contains(github.event.commits.*.modified, '.c') || contains(github.event.commits.*.modified, '.h')
+        run: |
+          echo "cmake_minimum_required(VERSION 3.10)" > CMakeLists.txt
+          echo "project(AmazingProject)" >> CMakeLists.txt
+          echo "add_executable(a-mazing *.c *.h)" >> CMakeLists.txt
+          echo "C/C++ dependencies saved to CMakeLists.txt"
+
+      # R Dependency Extraction
+      - name: Generate R Dependencies
+        if: contains(github.event.commits.*.modified, '.R')
+        run: |
+          grep -E "library\\((.*)\\)" *.R | sed 's/library(//' | sed 's/)//' > dependencies.R
+          echo "R dependencies saved to dependencies.R"
+
+      # Commit Changes
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Update dependency files for recent changes"
+            git push
+          else
+            echo "No changes detected"
