@@ -154,6 +154,22 @@ document.addEventListener('DOMContentLoaded', () => {
   btn.style.margin = '10px';
   btn.onclick = resetMaze;
   document.body.insertBefore(btn, canvas);
+
+  // Add a fog of war checkbox
+  const fogLabel = document.createElement('label');
+  fogLabel.style.margin = '10px';
+  fogLabel.style.fontSize = '1.1em';
+  const fogCheckbox = document.createElement('input');
+  fogCheckbox.type = 'checkbox';
+  fogCheckbox.id = 'fogOfWar';
+  fogCheckbox.style.marginRight = '6px';
+  fogLabel.appendChild(fogCheckbox);
+  fogLabel.appendChild(document.createTextNode('Fog of War (only show walls of visited cells)'));
+  document.body.insertBefore(fogLabel, canvas);
+  fogCheckbox.addEventListener('change', () => {
+    fogOfWar = fogCheckbox.checked;
+    drawMaze();
+  });
 });
 
 function cellKey(row, col) {
@@ -253,6 +269,7 @@ let path = [{ row: 0, col: 0 }];
 let visitedPath = Array.from({ length: rows }, () => Array(cols).fill(false));
 visitedPath[0][0] = true;
 let backtrackSquares = [];
+let fogOfWar = false;
 
 function getAvailableDirections(row, col) {
   const cell = grid[row][col];
@@ -352,32 +369,35 @@ function drawMaze() {
   ctx.lineWidth = 2;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const cell = grid[r][c];
-      const x = c * cellSize;
-      const y = r * cellSize;
-      if (cell.walls.top) {
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + cellSize, y);
-        ctx.stroke();
-      }
-      if (cell.walls.right) {
-        ctx.beginPath();
-        ctx.moveTo(x + cellSize, y);
-        ctx.lineTo(x + cellSize, y + cellSize);
-        ctx.stroke();
-      }
-      if (cell.walls.bottom) {
-        ctx.beginPath();
-        ctx.moveTo(x + cellSize, y + cellSize);
-        ctx.lineTo(x, y + cellSize);
-        ctx.stroke();
-      }
-      if (cell.walls.left) {
-        ctx.beginPath();
-        ctx.moveTo(x, y + cellSize);
-        ctx.lineTo(x, y);
-        ctx.stroke();
+      // FOG OF WAR: Only draw walls for visited cells if enabled
+      if (!fogOfWar || visitedPath[r][c]) {
+        const cell = grid[r][c];
+        const x = c * cellSize;
+        const y = r * cellSize;
+        if (cell.walls.top) {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + cellSize, y);
+          ctx.stroke();
+        }
+        if (cell.walls.right) {
+          ctx.beginPath();
+          ctx.moveTo(x + cellSize, y);
+          ctx.lineTo(x + cellSize, y + cellSize);
+          ctx.stroke();
+        }
+        if (cell.walls.bottom) {
+          ctx.beginPath();
+          ctx.moveTo(x + cellSize, y + cellSize);
+          ctx.lineTo(x, y + cellSize);
+          ctx.stroke();
+        }
+        if (cell.walls.left) {
+          ctx.beginPath();
+          ctx.moveTo(x, y + cellSize);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
       }
     }
   }
