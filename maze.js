@@ -58,10 +58,21 @@ function generateMaze() {
 
 // Function to show the solution path
 function showSolution() {
-  const stack = [];
-  let current = grid[0][0];
-  current.solutionPath = true;
-  animatePath(current, stack, "solution");
+  // Clear previous solution
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      grid[r][c].solutionPath = false;
+    }
+  }
+
+  const path = findPath(grid[0][0], grid[rows - 1][cols - 1]);
+  if (path.length > 0) {
+    for (const cell of path) {
+      cell.solutionPath = true;
+    }
+  }
+
+  drawMaze(); // Redraw the maze with the solution path
 }
 
 function getUnvisitedNeighbors(cell) {
@@ -74,7 +85,7 @@ function getUnvisitedNeighbors(cell) {
   return neighbors;
 }
 
-function getVisitedNeighbors(cell) {
+function getAccessibleNeighbors(cell) {
   const { row, col } = cell;
   const neighbors = [];
   if (row > 0 && !grid[row - 1][col].walls.bottom) neighbors.push(grid[row - 1][col]);
@@ -82,6 +93,39 @@ function getVisitedNeighbors(cell) {
   if (row < rows - 1 && !grid[row + 1][col].walls.top) neighbors.push(grid[row + 1][col]);
   if (col > 0 && !grid[row][col - 1].walls.right) neighbors.push(grid[row][col - 1]);
   return neighbors;
+}
+
+// Pathfinding using Breadth-First Search (BFS)
+function findPath(startCell, endCell) {
+  const queue = [startCell];
+  const visited = new Set([startCell]);
+  const parentMap = new Map();
+
+  while (queue.length > 0) {
+    const currentCell = queue.shift();
+
+    if (currentCell === endCell) {
+      // Path found, reconstruct it
+      const path = [];
+      let current = endCell;
+      while (current) {
+        path.unshift(current);
+        current = parentMap.get(current);
+      }
+      return path;
+    }
+
+    const neighbors = getAccessibleNeighbors(currentCell);
+    for (const neighbor of neighbors) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        parentMap.set(neighbor, currentCell);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return []; // No path found
 }
 
 function removeWalls(a, b) {
@@ -93,23 +137,25 @@ function removeWalls(a, b) {
   else if (dy === -1) { a.walls.top = false; b.walls.bottom = false; }
 }
 
+// Animate movement along a path
+async function animatePathMovement(path) {
+  for (let i = 0; i < path.length - 1; i++) {
+    await new Promise(resolve => {
+      animateTransition(path[i], path[i+1], "blue", easingDuration, resolve);
+    });
+  }
+}
+
 // Automatic automove with easing
 function autoMove() {
-  let current = grid[0][0];
-  const interval = setInterval(() => {
-    const neighbors = getVisitedNeighbors(current);
-    if (current.row === rows - 1 && current.col === cols - 1) {
-      clearInterval(interval);
-    } else if (neighbors.length > 0) {
-      const next = neighbors[0];
-      animateTransition(current, next, "blue", easingDuration);
-      current = next;
-    }
-  }, autoMoveDelay);
+  const path = findPath(grid[0][0], grid[rows - 1][cols - 1]);
+  if (path.length > 0) {
+    animatePathMovement(path);
+  }
 }
 
 // Animate smooth movement between cells
-function animateTransition(current, next, color, duration) {
+function animateTransition(current, next, color, duration, onComplete) {
   const startX = current.col * cellSize;
   const startY = current.row * cellSize;
   const endX = next.col * cellSize;
@@ -126,38 +172,20 @@ function animateTransition(current, next, color, duration) {
     const currentX = startX + easedT * (endX - startX);
     const currentY = startY + easedT * (endY - startY);
 
+    // Redrawing the whole maze is inefficient, but ensures correctness without complex state management.
     drawMaze();
+
     ctx.fillStyle = color;
     ctx.fillRect(currentX, currentY, cellSize, cellSize);
 
     if (t < 1) {
       requestAnimationFrame(drawFrame);
+    } else {
+      if (onComplete) onComplete();
     }
   }
 
   requestAnimationFrame(drawFrame);
-}
-
-// Animate solution or backtracking path
-function animatePath(current, stack, type) {
-  const interval = setInterval(() => {
-    if (type === "solution" && current.row === rows - 1 && current.col === cols - 1) {
-      clearInterval(interval);
-    } else {
-      const neighbors = type === "solution" ? getVisitedNeighbors(current) : getUnvisitedNeighbors(current);
-      if (neighbors.length > 0) {
-        const next = neighbors[0];
-        animateTransition(current, next, type === "solution" ? "green" : "red", easingDuration);
-        stack.push(current);
-        current = next;
-        current.solutionPath = true;
-      } else if (stack.length > 0) {
-        current = stack.pop();
-      } else {
-        clearInterval(interval);
-      }
-    }
-  }, autoMoveDelay);
 }
 
 // Draw maze and solution path
@@ -207,3 +235,7 @@ function drawWalls(cell) {
     ctx.stroke();
   }
 }
+
+// Generate and draw the initial maze
+generateMaze();
+drawMaze();
