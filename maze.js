@@ -20,6 +20,8 @@ class Cell {
     this.walls = { top: true, right: true, bottom: true, left: true };
     this.visited = false;
     this.solutionPath = false; // For solution visualization
+    this.isDeadEnd = false;
+    this.searchState = 'unvisited'; // for BFS visualization
   }
 }
 
@@ -39,8 +41,12 @@ function generateMaze() {
   player.col = 0;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      grid[r][c].visited = false;
-      grid[r][c].walls = { top: true, right: true, bottom: true, left: true };
+      const cell = grid[r][c];
+      cell.visited = false;
+      cell.walls = { top: true, right: true, bottom: true, left: true };
+      cell.solutionPath = false;
+      cell.isDeadEnd = false;
+      cell.searchState = 'unvisited';
     }
   }
   const stack = [];
@@ -63,23 +69,68 @@ function generateMaze() {
   }
 }
 
-// Function to show the solution path
-function showSolution() {
-  // Clear previous solution
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      grid[r][c].solutionPath = false;
+// Visualize BFS and then animate the final path
+async function showSolution() {
+    // Reset states
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            grid[r][c].solutionPath = false;
+            grid[r][c].searchState = 'unvisited';
+        }
     }
-  }
+    drawMaze();
 
-  const path = findPath(grid[0][0], grid[rows - 1][cols - 1]);
-  if (path.length > 0) {
-    for (const cell of path) {
-      cell.solutionPath = true;
+    const path = await visualizeBFS();
+
+    if (path.length > 0) {
+        // Mark the final path
+        for (const cell of path) {
+            cell.solutionPath = true;
+        }
+        drawMaze();
+
+        // Animate player along the final path
+        await animatePathMovement(path);
     }
-  }
+}
 
-  drawMaze(); // Redraw the maze with the solution path
+async function visualizeBFS() {
+    const queue = [[grid[0][0]]]; // Queue of paths
+    const visited = new Set([grid[0][0]]);
+    grid[0][0].searchState = 'visiting';
+
+    while (queue.length > 0) {
+        const currentPath = queue.shift();
+        const currentCell = currentPath[currentPath.length - 1];
+
+        if (currentCell.row === rows - 1 && currentCell.col === cols - 1) {
+            return currentPath; // Solution found
+        }
+
+        const neighbors = getAccessibleNeighbors(currentCell);
+        for (const neighbor of neighbors) {
+            if (!visited.has(neighbor)) {
+                visited.add(neighbor);
+                neighbor.searchState = 'visiting';
+
+                const newPath = [...currentPath, neighbor];
+                queue.push(newPath);
+
+                if (getAccessibleNeighbors(neighbor).length > 2) {
+                    neighbor.searchState = 'intersection';
+                }
+            }
+        }
+
+        currentCell.searchState = 'visited';
+
+        await new Promise(resolve => setTimeout(() => {
+            drawMaze();
+            resolve();
+        }, 50));
+    }
+
+    return []; // No path found
 }
 
 function getUnvisitedNeighbors(cell) {
@@ -124,7 +175,7 @@ function findPath(startCell, endCell) {
 
     const neighbors = getAccessibleNeighbors(currentCell);
     for (const neighbor of neighbors) {
-      if (!visited.has(neighbor)) {
+      if (!visited.has(neighbor) && !neighbor.isDeadEnd) {
         visited.add(neighbor);
         parentMap.set(neighbor, currentCell);
         queue.push(neighbor);
@@ -153,12 +204,53 @@ async function animatePathMovement(path) {
   }
 }
 
-// Automatic automove with easing
-function autoMove() {
-  const path = findPath(grid[0][0], grid[rows - 1][cols - 1]);
-  if (path.length > 0) {
-    animatePathMovement(path);
-  }
+// Dead-end filling algorithm for autoMove
+async function autoMove() {
+    // Phase 1: Identify and mark all dead-end paths
+    const deadEnds = [];
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const cell = grid[r][c];
+            const neighbors = getAccessibleNeighbors(cell);
+            if (neighbors.length === 1 && !(cell.row === 0 && cell.col === 0)) {
+                deadEnds.push(cell);
+            }
+        }
+    }
+
+    let visitedInFill = new Set();
+    for (const startNode of deadEnds) {
+        if (visitedInFill.has(startNode)) continue;
+
+        let current = startNode;
+        let path = [];
+        while (true) {
+            const neighbors = getAccessibleNeighbors(current).filter(n => !visitedInFill.has(n));
+            const parentIntersection = getAccessibleNeighbors(current);
+
+            if (parentIntersection.length > 2 || neighbors.length === 0) {
+                break; // Stop at intersections or if path is fully traversed
+            }
+
+            path.push(current);
+            visitedInFill.add(current);
+            current = neighbors[0];
+        }
+
+        for (const cell of path) {
+            cell.isDeadEnd = true;
+            await new Promise(resolve => setTimeout(() => {
+                drawMaze();
+                resolve();
+            }, 50));
+        }
+    }
+
+    // Phase 2: Solve the remaining maze
+    const path = findPath(grid[0][0], grid[rows - 1][cols - 1]);
+    if (path.length > 0) {
+        animatePathMovement(path);
+    }
 }
 
 // Animate smooth movement between cells
@@ -201,7 +293,7 @@ function drawMaze() {
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const cell = grid[r][c];
-      drawCell(cell, cell.solutionPath ? 'green' : 'white');
+      drawCell(cell);
       drawWalls(cell);
     }
   }
@@ -254,7 +346,26 @@ async function handleKeyPress(e) {
     }
 }
 
-function drawCell(cell, color) {
+function drawCell(cell) {
+  let color = 'white';
+  if (cell.isDeadEnd) {
+      color = '#444'; // Dark grey for dead ends
+  } else if (cell.solutionPath) {
+      color = 'lightgreen';
+  } else {
+      switch (cell.searchState) {
+          case 'visiting':
+              color = 'lightblue';
+              break;
+          case 'visited':
+              color = '#FFFFE0'; // Light yellow
+              break;
+          case 'intersection':
+              color = 'purple';
+              break;
+      }
+  }
+
   ctx.fillStyle = color;
   ctx.fillRect(cell.col * cellSize, cell.row * cellSize, cellSize, cellSize);
 }
