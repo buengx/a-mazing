@@ -5,6 +5,11 @@ const rows = 20;
 const cols = 20;
 const cellSize = canvas.width / cols;
 
+let player = {
+  row: 0,
+  col: 0
+};
+
 let autoMoveDelay = 200; // Delay for automove in milliseconds
 let easingDuration = 500; // Duration for sliding motion in milliseconds
 
@@ -30,6 +35,8 @@ for (let r = 0; r < rows; r++) {
 
 // Maze generation using Recursive Backtracker
 function generateMaze() {
+  player.row = 0;
+  player.col = 0;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       grid[r][c].visited = false;
@@ -198,6 +205,53 @@ function drawMaze() {
       drawWalls(cell);
     }
   }
+  drawPlayer();
+}
+
+function drawPlayer() {
+  const x = player.col * cellSize + cellSize / 2;
+  const y = player.row * cellSize + cellSize / 2;
+  const radius = cellSize / 3;
+
+  ctx.fillStyle = 'red';
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+async function handleKeyPress(e) {
+    let { row, col } = player;
+    const currentCell = grid[row][col];
+    let nextCell = null;
+
+    switch (e.key) {
+        case 'ArrowUp':
+            if (!currentCell.walls.top) nextCell = grid[row - 1][col];
+            break;
+        case 'ArrowDown':
+            if (!currentCell.walls.bottom) nextCell = grid[row + 1][col];
+            break;
+        case 'ArrowLeft':
+            if (!currentCell.walls.left) nextCell = grid[row][col - 1];
+            break;
+        case 'ArrowRight':
+            if (!currentCell.walls.right) nextCell = grid[row][col + 1];
+            break;
+    }
+
+    if (nextCell) {
+        await new Promise(resolve => {
+            animateTransition(currentCell, nextCell, 'red', 100, () => {
+                player.row = nextCell.row;
+                player.col = nextCell.col;
+                drawMaze();
+                if (player.row === rows - 1 && player.col === cols - 1) {
+                    setTimeout(() => alert('You won!'), 10);
+                }
+                resolve();
+            });
+        });
+    }
 }
 
 function drawCell(cell, color) {
@@ -239,3 +293,6 @@ function drawWalls(cell) {
 // Generate and draw the initial maze
 generateMaze();
 drawMaze();
+// Event Listeners
+window.addEventListener('keydown', handleKeyPress);
+
