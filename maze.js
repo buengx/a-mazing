@@ -293,6 +293,6 @@ function drawWalls(cell) {
 // Generate and draw the initial maze
 generateMaze();
 drawMaze();
+
 // Event Listeners
 window.addEventListener('keydown', handleKeyPress);
-
