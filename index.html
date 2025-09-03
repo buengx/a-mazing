@@ -4,12 +4,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>A-Mazing</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <canvas id="mazeCanvas" width="400" height="400"></canvas>
-  <button onclick="generateMaze(); drawMaze();">Generate Maze</button>
-  <button onclick="showSolution()">Show Solution</button>
-  <button onclick="autoMove()">Automatic Automove</button>
+  <div class="container">
+    <canvas id="mazeCanvas" width="400" height="400"></canvas>
+    <div class="controls">
+      <button onclick="generateMaze(); drawMaze();">Generate Maze</button>
+      <button onclick="showSolution()">Show Solution</button>
+      <button onclick="autoMove()">Automatic Automove</button>
+    </div>
+    <div class="checkboxes">
+      <label>
+        <input type="checkbox" id="hideUnvisitedWalls" onchange="toggleUnvisitedWalls()">
+        Hide unvisited cell walls
+      </label>
+      <label>
+        <input type="checkbox" id="autoMovement" onchange="toggleAutoMovement()">
+        Automatic movement
+      </label>
+    </div>
+  </div>
   <script src="maze.js"></script>
 </body>
 </html>
