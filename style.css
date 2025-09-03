@@ -3,10 +3,54 @@ body {
   background: #222;
   color: #fff;
   text-align: center;
+  margin: 0;
+  padding: 20px;
 }
+
+.container {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
 #mazeCanvas {
   background: #fff;
   display: block;
   margin: 20px auto;
   border: 2px solid #333;
+}
+
+.controls {
+  margin: 20px 0;
+}
+
+.controls button {
+  margin: 5px;
+  padding: 10px 15px;
+  background: #444;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.controls button:hover {
+  background: #555;
+}
+
+.checkboxes {
+  margin: 20px 0;
+  text-align: left;
+}
+
+.checkboxes label {
+  display: block;
+  margin: 10px 0;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.checkboxes input[type="checkbox"] {
+  margin-right: 8px;
+  transform: scale(1.2);
 }

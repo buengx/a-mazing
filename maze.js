@@ -13,6 +13,14 @@ let player = {
 let autoMoveDelay = 200; // Delay for automove in milliseconds
 let easingDuration = 500; // Duration for sliding motion in milliseconds
 
+// New variables for the enhanced functionality
+let hideUnvisitedWalls = false;
+let autoMovementEnabled = false;
+let playerVisited = new Set(); // Track visited cells
+let startCell = null;
+let endCell = null;
+let autoMovementInterval = null;
+
 class Cell {
   constructor(row, col) {
     this.row = row;
@@ -37,8 +45,7 @@ for (let r = 0; r < rows; r++) {
 
 // Maze generation using Recursive Backtracker
 function generateMaze() {
-  player.row = 0;
-  player.col = 0;
+  // Reset everything
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const cell = grid[r][c];
@@ -49,6 +56,8 @@ function generateMaze() {
       cell.searchState = 'unvisited';
     }
   }
+  playerVisited.clear();
+  
   const stack = [];
   let current = grid[0][0];
   current.visited = true;
@@ -67,6 +76,23 @@ function generateMaze() {
       current = stack.pop();
     }
   }
+  
+  // Reset visited for gameplay and find furthest points
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      grid[r][c].visited = false;
+    }
+  }
+  
+  // Find the two furthest points in the maze
+  const furthestPoints = findFurthestPoints();
+  startCell = furthestPoints.start;
+  endCell = furthestPoints.end;
+  
+  // Set player to start position
+  player.row = startCell.row;
+  player.col = startCell.col;
+  playerVisited.add(`${startCell.row},${startCell.col}`);
 }
 
 // Visualize BFS and then animate the final path
@@ -133,6 +159,55 @@ async function visualizeBFS() {
     return []; // No path found
 }
 
+// Find the two furthest points in the maze using BFS
+function findFurthestPoints() {
+  let maxDistance = 0;
+  let furthestPair = { start: grid[0][0], end: grid[rows-1][cols-1] };
+  
+  // Try each cell as a starting point
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const startCell = grid[r][c];
+      const distances = bfsDistances(startCell);
+      
+      // Find the furthest cell from this starting point
+      for (let r2 = 0; r2 < rows; r2++) {
+        for (let c2 = 0; c2 < cols; c2++) {
+          const distance = distances[r2][c2];
+          if (distance > maxDistance) {
+            maxDistance = distance;
+            furthestPair = { start: startCell, end: grid[r2][c2] };
+          }
+        }
+      }
+    }
+  }
+  
+  return furthestPair;
+}
+
+// BFS to calculate distances from a starting cell
+function bfsDistances(startCell) {
+  const distances = Array(rows).fill(null).map(() => Array(cols).fill(-1));
+  const queue = [startCell];
+  distances[startCell.row][startCell.col] = 0;
+  
+  while (queue.length > 0) {
+    const current = queue.shift();
+    const currentDistance = distances[current.row][current.col];
+    
+    const neighbors = getAccessibleNeighbors(current);
+    for (const neighbor of neighbors) {
+      if (distances[neighbor.row][neighbor.col] === -1) {
+        distances[neighbor.row][neighbor.col] = currentDistance + 1;
+        queue.push(neighbor);
+      }
+    }
+  }
+  
+  return distances;
+}
+
 function getUnvisitedNeighbors(cell) {
   const { row, col } = cell;
   const neighbors = [];
@@ -193,6 +268,88 @@ function removeWalls(a, b) {
   else if (dx === -1) { a.walls.left = false; b.walls.right = false; }
   else if (dy === 1) { a.walls.bottom = false; b.walls.top = false; }
   else if (dy === -1) { a.walls.top = false; b.walls.bottom = false; }
+}
+
+// Checkbox functionality
+function toggleUnvisitedWalls() {
+  hideUnvisitedWalls = document.getElementById('hideUnvisitedWalls').checked;
+  drawMaze();
+}
+
+function toggleAutoMovement() {
+  autoMovementEnabled = document.getElementById('autoMovement').checked;
+  if (autoMovementEnabled) {
+    startAutoMovement();
+  } else {
+    stopAutoMovement();
+  }
+}
+
+function startAutoMovement() {
+  if (autoMovementInterval) clearInterval(autoMovementInterval);
+  autoMovementInterval = setInterval(performAutoMovement, 300);
+}
+
+function stopAutoMovement() {
+  if (autoMovementInterval) {
+    clearInterval(autoMovementInterval);
+    autoMovementInterval = null;
+  }
+}
+
+function performAutoMovement() {
+  const currentCell = grid[player.row][player.col];
+  const unvisitedNeighbors = getAccessibleNeighbors(currentCell).filter(neighbor => 
+    !playerVisited.has(`${neighbor.row},${neighbor.col}`)
+  );
+  
+  if (unvisitedNeighbors.length === 1) {
+    // Move to the only unvisited neighbor
+    movePlayerTo(unvisitedNeighbors[0]);
+  } else if (unvisitedNeighbors.length === 0) {
+    // Backtrack until we find a cell with unvisited neighbors
+    backtrackToChoice();
+  } else {
+    // Multiple choices available, wait for user input
+    stopAutoMovement();
+  }
+}
+
+function backtrackToChoice() {
+  // Find path back to a cell with multiple unvisited neighbors
+  const visitedCells = Array.from(playerVisited).map(coord => {
+    const [row, col] = coord.split(',').map(Number);
+    return grid[row][col];
+  });
+  
+  // Reverse order to backtrack
+  for (let i = visitedCells.length - 1; i >= 0; i--) {
+    const cell = visitedCells[i];
+    const unvisitedNeighbors = getAccessibleNeighbors(cell).filter(neighbor => 
+      !playerVisited.has(`${neighbor.row},${neighbor.col}`)
+    );
+    
+    if (unvisitedNeighbors.length > 1) {
+      movePlayerTo(cell);
+      return;
+    }
+  }
+  
+  // No choices found, stop auto movement
+  stopAutoMovement();
+}
+
+function movePlayerTo(targetCell) {
+  player.row = targetCell.row;
+  player.col = targetCell.col;
+  playerVisited.add(`${targetCell.row},${targetCell.col}`);
+  drawMaze();
+  
+  // Check if reached end
+  if (targetCell === endCell) {
+    stopAutoMovement();
+    setTimeout(() => alert('You won!'), 100);
+  }
 }
 
 // Animate movement along a path
@@ -336,8 +493,9 @@ async function handleKeyPress(e) {
             animateTransition(currentCell, nextCell, 'red', 100, () => {
                 player.row = nextCell.row;
                 player.col = nextCell.col;
+                playerVisited.add(`${nextCell.row},${nextCell.col}`);
                 drawMaze();
-                if (player.row === rows - 1 && player.col === cols - 1) {
+                if (endCell && player.row === endCell.row && player.col === endCell.col) {
                     setTimeout(() => alert('You won!'), 10);
                 }
                 resolve();
@@ -348,22 +506,32 @@ async function handleKeyPress(e) {
 
 function drawCell(cell) {
   let color = 'white';
-  if (cell.isDeadEnd) {
-      color = '#444'; // Dark grey for dead ends
+  const isPlayerVisited = playerVisited.has(`${cell.row},${cell.col}`);
+  const isStart = startCell && cell.row === startCell.row && cell.col === startCell.col;
+  const isEnd = endCell && cell.row === endCell.row && cell.col === endCell.col;
+  
+  if (isStart) {
+    color = 'lightblue';
+  } else if (isEnd) {
+    color = 'lightcoral';
+  } else if (isPlayerVisited) {
+    color = 'lightgray';
+  } else if (cell.isDeadEnd) {
+    color = '#444'; // Dark grey for dead ends
   } else if (cell.solutionPath) {
-      color = 'lightgreen';
+    color = 'lightgreen';
   } else {
-      switch (cell.searchState) {
-          case 'visiting':
-              color = 'lightblue';
-              break;
-          case 'visited':
-              color = '#FFFFE0'; // Light yellow
-              break;
-          case 'intersection':
-              color = 'purple';
-              break;
-      }
+    switch (cell.searchState) {
+      case 'visiting':
+        color = 'lightblue';
+        break;
+      case 'visited':
+        color = '#FFFFE0'; // Light yellow
+        break;
+      case 'intersection':
+        color = 'purple';
+        break;
+    }
   }
 
   ctx.fillStyle = color;
@@ -373,6 +541,13 @@ function drawCell(cell) {
 function drawWalls(cell) {
   const x = cell.col * cellSize;
   const y = cell.row * cellSize;
+  const isPlayerVisited = playerVisited.has(`${cell.row},${cell.col}`);
+  
+  // If hiding unvisited walls and this cell is unvisited, don't draw walls
+  if (hideUnvisitedWalls && !isPlayerVisited) {
+    return;
+  }
+  
   ctx.strokeStyle = 'black';
   ctx.lineWidth = 2;
   if (cell.walls.top) {
