@@ -1,6 +1,13 @@
 // Maze generation and rendering
 const canvas = document.getElementById('mazeCanvas');
 const ctx = canvas.getContext('2d');
+
+// Create a separate canvas for the maze background
+const mazeCanvas = document.createElement('canvas');
+mazeCanvas.width = canvas.width;
+mazeCanvas.height = canvas.height;
+const mazeCtx = mazeCanvas.getContext('2d');
+
 const rows = 20;
 const cols = 20;
 const cellSize = canvas.width / cols;
@@ -93,6 +100,11 @@ function generateMaze() {
   player.row = startCell.row;
   player.col = startCell.col;
   playerVisited.add(`${startCell.row},${startCell.col}`);
+  
+  // Restart automatic movement if it was enabled
+  if (autoMovementEnabled) {
+    startAutoMovement();
+  }
 }
 
 // Visualize BFS and then animate the final path
@@ -446,15 +458,31 @@ function animateTransition(current, next, color, duration, onComplete) {
 
 // Draw maze and solution path
 function drawMaze() {
+  // Clear the main canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw the maze background on the separate canvas
+  drawMazeBackground();
+  
+  // Copy the maze background to the main canvas
+  ctx.drawImage(mazeCanvas, 0, 0);
+  
+  // Draw the player on top
+  drawPlayer();
+}
+
+function drawMazeBackground() {
+  // Clear the maze canvas
+  mazeCtx.clearRect(0, 0, mazeCanvas.width, mazeCanvas.height);
+  
+  // Draw all cells and walls on the maze canvas
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const cell = grid[r][c];
-      drawCell(cell);
-      drawWalls(cell);
+      drawCell(cell, mazeCtx);
+      drawWalls(cell, mazeCtx);
     }
   }
-  drawPlayer();
 }
 
 function drawPlayer() {
@@ -504,7 +532,7 @@ async function handleKeyPress(e) {
     }
 }
 
-function drawCell(cell) {
+function drawCell(cell, context = ctx) {
   let color = 'white';
   const isPlayerVisited = playerVisited.has(`${cell.row},${cell.col}`);
   const isStart = startCell && cell.row === startCell.row && cell.col === startCell.col;
@@ -534,11 +562,11 @@ function drawCell(cell) {
     }
   }
 
-  ctx.fillStyle = color;
-  ctx.fillRect(cell.col * cellSize, cell.row * cellSize, cellSize, cellSize);
+  context.fillStyle = color;
+  context.fillRect(cell.col * cellSize, cell.row * cellSize, cellSize, cellSize);
 }
 
-function drawWalls(cell) {
+function drawWalls(cell, context = ctx) {
   const x = cell.col * cellSize;
   const y = cell.row * cellSize;
   const isPlayerVisited = playerVisited.has(`${cell.row},${cell.col}`);
@@ -548,31 +576,31 @@ function drawWalls(cell) {
     return;
   }
   
-  ctx.strokeStyle = 'black';
-  ctx.lineWidth = 2;
+  context.strokeStyle = 'black';
+  context.lineWidth = 2;
   if (cell.walls.top) {
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + cellSize, y);
-    ctx.stroke();
+    context.beginPath();
+    context.moveTo(x, y);
+    context.lineTo(x + cellSize, y);
+    context.stroke();
   }
   if (cell.walls.right) {
-    ctx.beginPath();
-    ctx.moveTo(x + cellSize, y);
-    ctx.lineTo(x + cellSize, y + cellSize);
-    ctx.stroke();
+    context.beginPath();
+    context.moveTo(x + cellSize, y);
+    context.lineTo(x + cellSize, y + cellSize);
+    context.stroke();
   }
   if (cell.walls.bottom) {
-    ctx.beginPath();
-    ctx.moveTo(x, y + cellSize);
-    ctx.lineTo(x + cellSize, y + cellSize);
-    ctx.stroke();
+    context.beginPath();
+    context.moveTo(x, y + cellSize);
+    context.lineTo(x + cellSize, y + cellSize);
+    context.stroke();
   }
   if (cell.walls.left) {
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x, y + cellSize);
-    ctx.stroke();
+    context.beginPath();
+    context.moveTo(x, y);
+    context.lineTo(x, y + cellSize);
+    context.stroke();
   }
 }
 
